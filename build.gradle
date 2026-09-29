@@ -1,0 +1,61 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '4.1.1'
+    id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'com.tmsbackend'
+version = '0.0.1-SNAPSHOT'
+description = 'tms-backend'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+ext {
+    jjwtVersion = '0.12.6'
+}
+
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+    implementation 'org.springframework.boot:spring-boot-starter-mail'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+    // Backs @Auditable (see application.audit) - the audit log is written by
+    // an AspectJ-proxied @Aspect around each annotated use case method,
+    // rather than by hand-written auditEventRepository.save(...) calls
+    // scattered through the use cases themselves. Spring Boot 4.x renamed
+    // this starter from spring-boot-starter-aop to spring-boot-starter-
+    // aspectj (found by hitting a "could not find" resolution failure with
+    // the old name - it's simply gone from the 4.1.1 BOM, not just
+    // unmanaged).
+    implementation 'org.springframework.boot:spring-boot-starter-aspectj'
+
+    runtimeOnly 'org.postgresql:postgresql'
+    // Spring Boot 4.x split Flyway autoconfiguration out of
+    // spring-boot-autoconfigure into its own module - both are required:
+    // spring-boot-flyway wires up the FlywayAutoConfiguration Spring Boot
+    // itself now needs, flyway-database-postgresql is Flyway's own
+    // Postgres-dialect support.
+    implementation 'org.springframework.boot:spring-boot-flyway'
+    implementation 'org.flywaydb:flyway-database-postgresql'
+
+    implementation "io.jsonwebtoken:jjwt-api:${jjwtVersion}"
+    runtimeOnly "io.jsonwebtoken:jjwt-impl:${jjwtVersion}"
+    runtimeOnly "io.jsonwebtoken:jjwt-jackson:${jjwtVersion}"
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.security:spring-security-test'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
