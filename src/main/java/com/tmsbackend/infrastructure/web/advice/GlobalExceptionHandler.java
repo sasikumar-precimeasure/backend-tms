@@ -2,6 +2,7 @@ package com.tmsbackend.infrastructure.web.advice;
 
 import com.tmsbackend.application.usecase.ForgotPasswordUseCase;
 import com.tmsbackend.application.usecase.GetCurrentUserUseCase;
+import com.tmsbackend.application.usecase.GetDataLogUseCase;
 import com.tmsbackend.application.usecase.LoginUseCase;
 import com.tmsbackend.application.usecase.ManageMailSettingsUseCase;
 import com.tmsbackend.application.usecase.ManageRolesUseCase;
@@ -86,6 +87,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ManageRolesUseCase.RoleInUseException.class)
     public ResponseEntity<ApiResponseDto<Void>> handleRoleInUse(ManageRolesUseCase.RoleInUseException e) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponseDto.error(e.getMessage()));
+    }
+
+    @ExceptionHandler(GetDataLogUseCase.DeviceNotFoundException.class)
+    public ResponseEntity<ApiResponseDto<Void>> handleDataLogDeviceNotFound(GetDataLogUseCase.DeviceNotFoundException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponseDto.error(e.getMessage()));
     }
 
     @ExceptionHandler(PermissionGuard.ForbiddenException.class)

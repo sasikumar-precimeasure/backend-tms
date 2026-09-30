@@ -2,12 +2,17 @@ package com.tmsbackend.infrastructure.persistence.adapter;
 
 import com.tmsbackend.domain.model.Device2243Reading;
 import com.tmsbackend.domain.model.IrtccReading;
+import com.tmsbackend.domain.model.PagedResult;
 import com.tmsbackend.domain.port.ReadingRepositoryPort;
 import com.tmsbackend.infrastructure.persistence.entity.Device2243ReadingEntity;
 import com.tmsbackend.infrastructure.persistence.entity.IrtccReadingEntity;
 import com.tmsbackend.infrastructure.persistence.repository.Device2243ReadingJpaRepository;
 import com.tmsbackend.infrastructure.persistence.repository.IrtccReadingJpaRepository;
+import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
 // Idempotent on (deviceId, recordedAt): a retried push after a client
@@ -113,6 +118,35 @@ public class ReadingRepositoryAdapter implements ReadingRepositoryPort {
     @Override
     public Optional<Device2243Reading> findLatestDevice2243(String deviceId) {
         return device2243ReadingJpaRepository.findFirstByDeviceIdOrderByRecordedAtDesc(deviceId).map(this::toDomain);
+    }
+
+    @Override
+    public PagedResult<IrtccReading> findIrtccByDeviceAndDateRange(String deviceId, Instant from, Instant to, int page, int pageSize) {
+        Page<IrtccReadingEntity> result = irtccReadingJpaRepository.findByDeviceIdAndRecordedAtBetweenOrderByRecordedAtDesc(
+                deviceId, from, to, PageRequest.of(page - 1, pageSize));
+        return new PagedResult<>(result.getContent().stream().map(this::toDomain).toList(), result.getTotalElements(), page, pageSize);
+    }
+
+    @Override
+    public PagedResult<Device2243Reading> findDevice2243ByDeviceAndDateRange(
+            String deviceId, Instant from, Instant to, int page, int pageSize) {
+        Page<Device2243ReadingEntity> result = device2243ReadingJpaRepository
+                .findByDeviceIdAndRecordedAtBetweenOrderByRecordedAtDesc(deviceId, from, to, PageRequest.of(page - 1, pageSize));
+        return new PagedResult<>(result.getContent().stream().map(this::toDomain).toList(), result.getTotalElements(), page, pageSize);
+    }
+
+    @Override
+    public List<IrtccReading> findAllIrtccByDeviceAndDateRange(String deviceId, Instant from, Instant to) {
+        return irtccReadingJpaRepository.findByDeviceIdAndRecordedAtBetweenOrderByRecordedAtDesc(deviceId, from, to).stream()
+                .map(this::toDomain)
+                .toList();
+    }
+
+    @Override
+    public List<Device2243Reading> findAllDevice2243ByDeviceAndDateRange(String deviceId, Instant from, Instant to) {
+        return device2243ReadingJpaRepository.findByDeviceIdAndRecordedAtBetweenOrderByRecordedAtDesc(deviceId, from, to).stream()
+                .map(this::toDomain)
+                .toList();
     }
 
     private IrtccReading toDomain(IrtccReadingEntity e) {

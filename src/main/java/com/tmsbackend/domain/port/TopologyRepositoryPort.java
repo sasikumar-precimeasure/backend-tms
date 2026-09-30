@@ -20,4 +20,12 @@ public interface TopologyRepositoryPort {
     Optional<Device> findDevice(String deviceId);
 
     List<Device> findAllDevices();
+
+    // Backs the Data Log screen's Transformer/device picker - the backend's
+    // own topology (kept in sync by the 1-minute ingestion push) rather than
+    // the frontend's local Connection Settings state, since the Data Log
+    // reflects what's actually been stored server-side.
+    List<Transformer> findAllTransformers();
+
+    List<Gateway> findAllGateways();
 }

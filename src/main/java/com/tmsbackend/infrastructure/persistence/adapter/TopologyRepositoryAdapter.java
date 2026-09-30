@@ -71,6 +71,20 @@ public class TopologyRepositoryAdapter implements TopologyRepositoryPort {
         return deviceJpaRepository.findAll().stream().map(this::toDomain).toList();
     }
 
+    @Override
+    public List<Transformer> findAllTransformers() {
+        return transformerJpaRepository.findAll().stream()
+                .map(e -> new Transformer(e.getId(), e.getName()))
+                .toList();
+    }
+
+    @Override
+    public List<Gateway> findAllGateways() {
+        return gatewayJpaRepository.findAll().stream()
+                .map(e -> new Gateway(e.getId(), e.getTransformerId(), e.getName(), e.getClientId(), e.getIpAddress(), e.getPort()))
+                .toList();
+    }
+
     private Device toDomain(DeviceEntity entity) {
         return new Device(entity.getId(), entity.getGatewayId(), entity.getName(), entity.getSlaveId(), entity.getDeviceType(), entity.isEnabled());
     }
