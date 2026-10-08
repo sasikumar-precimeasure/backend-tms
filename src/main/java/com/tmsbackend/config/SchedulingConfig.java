@@ -1,6 +1,7 @@
 package com.tmsbackend.config;
 
 import com.tmsbackend.application.usecase.EvaluateMailThresholdsUseCase;
+import com.tmsbackend.application.usecase.MonthlyReportUseCase;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Configuration;
@@ -13,9 +14,12 @@ public class SchedulingConfig {
     private static final Logger log = LoggerFactory.getLogger(SchedulingConfig.class);
 
     private final EvaluateMailThresholdsUseCase evaluateMailThresholdsUseCase;
+    private final MonthlyReportUseCase monthlyReportUseCase;
 
-    public SchedulingConfig(EvaluateMailThresholdsUseCase evaluateMailThresholdsUseCase) {
+    public SchedulingConfig(
+            EvaluateMailThresholdsUseCase evaluateMailThresholdsUseCase, MonthlyReportUseCase monthlyReportUseCase) {
         this.evaluateMailThresholdsUseCase = evaluateMailThresholdsUseCase;
+        this.monthlyReportUseCase = monthlyReportUseCase;
     }
 
     // Every minute: compare each device's latest reading against its own
@@ -29,6 +33,17 @@ public class SchedulingConfig {
             // A single bad tick (e.g. SMTP momentarily unreachable) must
             // never kill the scheduler - log and try again next minute.
             log.error("Mail threshold evaluation failed", e);
+        }
+    }
+
+    // Every minute: send last month's report once its scheduled day/time
+    // has passed - exactly-once per month, see MonthlyReportUseCase.
+    @Scheduled(fixedRate = 60_000, initialDelay = 30_000)
+    public void sendMonthlyReport() {
+        try {
+            monthlyReportUseCase.runScheduled();
+        } catch (Exception e) {
+            log.error("Monthly report check failed", e);
         }
     }
 }

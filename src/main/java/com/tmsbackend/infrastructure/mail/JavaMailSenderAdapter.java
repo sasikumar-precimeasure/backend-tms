@@ -1,10 +1,12 @@
 package com.tmsbackend.infrastructure.mail;
 
+import com.tmsbackend.domain.model.MailAttachment;
 import com.tmsbackend.domain.model.MailSenderSettings;
 import com.tmsbackend.domain.port.MailSenderPort;
 import jakarta.mail.internet.MimeMessage;
 import java.util.List;
 import java.util.Properties;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Component;
@@ -17,6 +19,16 @@ import org.springframework.stereotype.Component;
 public class JavaMailSenderAdapter implements MailSenderPort {
     @Override
     public void send(MailSenderSettings senderSettings, List<String> toAddresses, String subject, String htmlBody) {
+        send(senderSettings, toAddresses, subject, htmlBody, List.of());
+    }
+
+    @Override
+    public void send(
+            MailSenderSettings senderSettings,
+            List<String> toAddresses,
+            String subject,
+            String htmlBody,
+            List<MailAttachment> attachments) {
         JavaMailSenderImpl mailSender = new JavaMailSenderImpl();
         mailSender.setHost(senderSettings.smtpHost());
         mailSender.setPort(senderSettings.smtpPort());
@@ -32,11 +44,14 @@ public class JavaMailSenderAdapter implements MailSenderPort {
 
         try {
             MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, false, "UTF-8");
+            MimeMessageHelper helper = new MimeMessageHelper(message, !attachments.isEmpty(), "UTF-8");
             helper.setFrom(senderSettings.senderEmail(), senderSettings.senderName());
             helper.setTo(toAddresses.toArray(new String[0]));
             helper.setSubject(subject);
             helper.setText(htmlBody, true);
+            for (MailAttachment attachment : attachments) {
+                helper.addAttachment(attachment.fileName(), new ByteArrayResource(attachment.data()), attachment.contentType());
+            }
             mailSender.send(message);
         } catch (Exception e) {
             throw new IllegalStateException("Failed to send mail: " + e.getMessage(), e);

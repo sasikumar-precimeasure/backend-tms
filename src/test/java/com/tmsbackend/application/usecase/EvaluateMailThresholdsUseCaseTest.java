@@ -6,10 +6,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.tmsbackend.domain.model.Device;
 import com.tmsbackend.domain.model.Device2243Reading;
 import com.tmsbackend.domain.model.DeviceType;
+import com.tmsbackend.domain.model.Gateway;
 import com.tmsbackend.domain.model.IrtccReading;
 import com.tmsbackend.domain.model.MailRecipient;
 import com.tmsbackend.domain.model.MailSenderSettings;
 import com.tmsbackend.domain.model.MailThresholds;
+import com.tmsbackend.domain.model.PagedResult;
+import com.tmsbackend.domain.model.Transformer;
 import com.tmsbackend.domain.port.MailSenderPort;
 import com.tmsbackend.domain.port.MailSettingsRepositoryPort;
 import com.tmsbackend.domain.port.ReadingRepositoryPort;
@@ -80,6 +83,16 @@ class EvaluateMailThresholdsUseCaseTest {
             public List<Device> findAllDevices() {
                 return List.of(new Device(DEVICE_ID, "gw-1", "TR1 IRTCC", 1, DeviceType.IRTCC, true));
             }
+
+            @Override
+            public List<Transformer> findAllTransformers() {
+                return List.of();
+            }
+
+            @Override
+            public List<Gateway> findAllGateways() {
+                return List.of();
+            }
         };
 
         ReadingRepositoryPort readingRepository = new ReadingRepositoryPort() {
@@ -100,6 +113,28 @@ class EvaluateMailThresholdsUseCaseTest {
             @Override
             public Optional<Device2243Reading> findLatestDevice2243(String deviceId) {
                 return Optional.empty();
+            }
+
+            @Override
+            public PagedResult<IrtccReading> findIrtccByDeviceAndDateRange(
+                    String deviceId, Instant from, Instant to, int page, int pageSize) {
+                return null;
+            }
+
+            @Override
+            public PagedResult<Device2243Reading> findDevice2243ByDeviceAndDateRange(
+                    String deviceId, Instant from, Instant to, int page, int pageSize) {
+                return null;
+            }
+
+            @Override
+            public List<IrtccReading> findAllIrtccByDeviceAndDateRange(String deviceId, Instant from, Instant to) {
+                return List.of();
+            }
+
+            @Override
+            public List<Device2243Reading> findAllDevice2243ByDeviceAndDateRange(String deviceId, Instant from, Instant to) {
+                return List.of();
             }
         };
 

@@ -102,6 +102,11 @@ class AuditAspectSelfInvocationTest {
         public List<AuditEvent> findByUser(Long userId, int limit) {
             return saved;
         }
+
+        @Override
+        public List<AuditEvent> findByDateRange(String deviceId, Instant from, Instant to, int limit) {
+            return saved;
+        }
     }
 
     private AnnotationConfigApplicationContext context;

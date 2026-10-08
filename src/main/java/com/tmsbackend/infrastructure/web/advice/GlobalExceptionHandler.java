@@ -7,6 +7,7 @@ import com.tmsbackend.application.usecase.LoginUseCase;
 import com.tmsbackend.application.usecase.ManageMailSettingsUseCase;
 import com.tmsbackend.application.usecase.ManageRolesUseCase;
 import com.tmsbackend.application.usecase.ManageUsersUseCase;
+import com.tmsbackend.application.usecase.MonthlyReportUseCase;
 import com.tmsbackend.application.usecase.RefreshTokenUseCase;
 import com.tmsbackend.application.usecase.ResetPasswordUseCase;
 import com.tmsbackend.infrastructure.web.PermissionGuard;
@@ -92,6 +93,16 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(GetDataLogUseCase.DeviceNotFoundException.class)
     public ResponseEntity<ApiResponseDto<Void>> handleDataLogDeviceNotFound(GetDataLogUseCase.DeviceNotFoundException e) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponseDto.error(e.getMessage()));
+    }
+
+    @ExceptionHandler(MonthlyReportUseCase.InvalidReportSettingsException.class)
+    public ResponseEntity<ApiResponseDto<Void>> handleInvalidReportSettings(MonthlyReportUseCase.InvalidReportSettingsException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponseDto.error(e.getMessage()));
+    }
+
+    @ExceptionHandler(MonthlyReportUseCase.ReportNotSendableException.class)
+    public ResponseEntity<ApiResponseDto<Void>> handleReportNotSendable(MonthlyReportUseCase.ReportNotSendableException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponseDto.error(e.getMessage()));
     }
 
     @ExceptionHandler(PermissionGuard.ForbiddenException.class)
