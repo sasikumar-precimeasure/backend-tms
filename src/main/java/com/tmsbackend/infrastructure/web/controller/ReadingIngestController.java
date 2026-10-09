@@ -7,8 +7,10 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-// One call every 60s from the frontend, covering every currently-visible
-// device (see RecordReadingBatchUseCase for the upsert-and-insert logic).
+// One call per push interval (60s by default) from the Modbus gateway
+// service - authenticated with its ingest key (IngestKeyAuthenticationFilter)
+// - covering every configured device (see RecordReadingBatchUseCase for the
+// upsert-and-insert logic). A logged-in user's JWT is still accepted too.
 @RestController
 @RequestMapping("/tms/api/readings")
 public class ReadingIngestController {

@@ -43,6 +43,11 @@ tms:
     username: ${ADMIN_SEED_USERNAME:admin}
     email: ${ADMIN_SEED_EMAIL:admin@example.com}
     password: ${ADMIN_SEED_PASSWORD:admin123}
+  ingest:
+    # Shared key the Modbus gateway service uses to push readings without a
+    # user login - set the SAME value as TMS_INGEST_KEY on the gateway, and
+    # generate a real one per install, e.g.: openssl rand -base64 32
+    api-key: ${INGEST_API_KEY:CHANGE_ME_DEV_ONLY_ingest-key}
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
 
