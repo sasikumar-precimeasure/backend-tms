@@ -27,9 +27,10 @@ public class DataLogDto {
         }
     }
 
-    public record DeviceDto(String id, String name, String deviceType) {
-        public static DeviceDto from(Device d) {
-            return new DeviceDto(d.id(), d.name(), d.deviceType().name());
+    public record DeviceDto(String id, String name, String deviceType, Instant lastReadingAt) {
+        public static DeviceDto from(GetDataLogUseCase.DeviceTopology t) {
+            Device d = t.device();
+            return new DeviceDto(d.id(), d.name(), d.deviceType().name(), t.lastReadingAt());
         }
     }
 

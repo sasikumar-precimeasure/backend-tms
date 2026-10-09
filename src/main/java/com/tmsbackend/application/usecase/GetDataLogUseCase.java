@@ -31,7 +31,12 @@ public class GetDataLogUseCase {
     public record TransformerTopology(Transformer transformer, List<GatewayTopology> gateways) {
     }
 
-    public record GatewayTopology(Gateway gateway, List<Device> devices) {
+    public record GatewayTopology(Gateway gateway, List<DeviceTopology> devices) {
+    }
+
+    // lastReadingAt (null = no readings stored at all) lets the Data Log
+    // tell a live device apart from a same-named leftover of an older setup.
+    public record DeviceTopology(Device device, Instant lastReadingAt) {
     }
 
     private final TopologyRepositoryPort topologyRepository;
@@ -40,6 +45,12 @@ public class GetDataLogUseCase {
     public GetDataLogUseCase(TopologyRepositoryPort topologyRepository, ReadingRepositoryPort readingRepository) {
         this.topologyRepository = topologyRepository;
         this.readingRepository = readingRepository;
+    }
+
+    private Instant lastReadingAt(Device device) {
+        return device.deviceType() == DeviceType.IRTCC
+                ? readingRepository.findLatestIrtcc(device.id()).map(IrtccReading::recordedAt).orElse(null)
+                : readingRepository.findLatestDevice2243(device.id()).map(Device2243Reading::recordedAt).orElse(null);
     }
 
     public List<TransformerTopology> listTopology() {
@@ -52,7 +63,11 @@ public class GetDataLogUseCase {
                     List<GatewayTopology> gatewayTopologies = gateways.stream()
                             .filter(gw -> gw.transformerId().equals(transformer.id()))
                             .map(gw -> new GatewayTopology(
-                                    gw, devices.stream().filter(d -> d.gatewayId().equals(gw.id())).toList()))
+                                    gw,
+                                    devices.stream()
+                                            .filter(d -> d.gatewayId().equals(gw.id()))
+                                            .map(d -> new DeviceTopology(d, lastReadingAt(d)))
+                                            .toList()))
                             .toList();
                     return new TransformerTopology(transformer, gatewayTopologies);
                 })

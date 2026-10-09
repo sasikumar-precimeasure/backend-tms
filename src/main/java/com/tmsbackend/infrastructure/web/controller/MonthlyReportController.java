@@ -22,13 +22,13 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-// Settings > Mail Configuration > Monthly Report - gated on the existing
-// "Mail Configuration" permission menu rather than a new one, since it's
-// configured from the same screen. `month` params are "YYYY-MM".
+// Settings > Mail Configuration > Monthly Report - gated on its own
+// "Monthly Report" permission menu (V5__monthly_report_permission.sql),
+// granted to Super Admin only by default. `month` params are "YYYY-MM".
 @RestController
 @RequestMapping("/tms/api/reports/monthly")
 public class MonthlyReportController {
-    private static final String MENU = "Mail Configuration";
+    private static final String MENU = "Monthly Report";
 
     private final MonthlyReportUseCase monthlyReportUseCase;
     private final CurrentUserResolver currentUserResolver;
