@@ -12,6 +12,11 @@ import com.tmsbackend.application.usecase.RefreshTokenUseCase;
 import com.tmsbackend.application.usecase.ResetPasswordUseCase;
 import com.tmsbackend.infrastructure.web.PermissionGuard;
 import com.tmsbackend.infrastructure.web.dto.ApiResponseDto;
+import tools.jackson.databind.DatabindException;
+import jakarta.servlet.http.HttpServletRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -25,6 +30,8 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 // off response.data.message.
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
     @ExceptionHandler(LoginUseCase.InvalidCredentialsException.class)
     public ResponseEntity<ApiResponseDto<Void>> handleInvalidCredentials(LoginUseCase.InvalidCredentialsException e) {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponseDto.error(e.getMessage()));
@@ -119,8 +126,36 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponseDto.error(message));
     }
 
+    // Malformed request body (wrong type for a field, invalid JSON) - a 400
+    // naming the offending field, instead of a generic 500. Logged, since
+    // the readings push is fire-and-forget on the frontend and a rejected
+    // batch otherwise disappears without a trace.
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiResponseDto<Void>> handleUnreadable(HttpMessageNotReadableException e, HttpServletRequest request) {
+        String detail = e.getCause() instanceof DatabindException mapping
+                ? "Invalid value for '" + fieldPath(mapping) + "': " + mapping.getOriginalMessage()
+                : "Malformed request body";
+        log.warn("Rejected {} {}: {}", request.getMethod(), request.getRequestURI(), detail);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponseDto.error(detail));
+    }
+
+    // e.g. "transformers[1].gateways[0].devices[0].irtccReading.tapPosition"
+    private static String fieldPath(DatabindException e) {
+        StringBuilder path = new StringBuilder();
+        for (var ref : e.getPath()) {
+            if (ref.getPropertyName() != null) {
+                if (!path.isEmpty()) path.append('.');
+                path.append(ref.getPropertyName());
+            } else if (ref.getIndex() >= 0) {
+                path.append('[').append(ref.getIndex()).append(']');
+            }
+        }
+        return path.isEmpty() ? "request body" : path.toString();
+    }
+
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ApiResponseDto<Void>> handleUnexpected(Exception e) {
+    public ResponseEntity<ApiResponseDto<Void>> handleUnexpected(Exception e, HttpServletRequest request) {
+        log.error("Unhandled error on {} {}", request.getMethod(), request.getRequestURI(), e);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponseDto.error("An unexpected error occurred"));
     }
 }

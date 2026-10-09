@@ -6,6 +6,8 @@ import com.tmsbackend.domain.model.Gateway;
 import com.tmsbackend.domain.model.Transformer;
 import com.tmsbackend.domain.port.ReadingRepositoryPort;
 import com.tmsbackend.domain.port.TopologyRepositoryPort;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 // One call per 60s tick from the frontend, covering every currently
@@ -16,6 +18,8 @@ import org.springframework.stereotype.Component;
 // retried push after a client-side timeout never double-inserts.
 @Component
 public class RecordReadingBatchUseCase {
+    private static final Logger log = LoggerFactory.getLogger(RecordReadingBatchUseCase.class);
+
     private final TopologyRepositoryPort topologyRepository;
     private final ReadingRepositoryPort readingRepository;
 
@@ -35,11 +39,17 @@ public class RecordReadingBatchUseCase {
                     topologyRepository.upsertDevice(
                             new Device(device.id(), gw.id(), device.name(), device.slaveId(), device.deviceType(), device.enabled()));
 
-                    if (device.irtccReading() != null) {
-                        readingRepository.saveIrtccReading(device.irtccReading());
-                    }
-                    if (device.device2243Reading() != null) {
-                        readingRepository.saveDevice2243Reading(device.device2243Reading());
+                    // Saved per device: one device's bad row must not cost every
+                    // other transformer its reading for this minute.
+                    try {
+                        if (device.irtccReading() != null) {
+                            readingRepository.saveIrtccReading(device.irtccReading());
+                        }
+                        if (device.device2243Reading() != null) {
+                            readingRepository.saveDevice2243Reading(device.device2243Reading());
+                        }
+                    } catch (RuntimeException e) {
+                        log.warn("Could not save reading for device {} ({}): {}", device.id(), device.name(), e.getMessage());
                     }
                 }
             }
