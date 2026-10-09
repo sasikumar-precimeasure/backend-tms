@@ -6,6 +6,10 @@ import com.tmsbackend.domain.model.Gateway;
 import com.tmsbackend.domain.model.Transformer;
 import com.tmsbackend.domain.port.ReadingRepositoryPort;
 import com.tmsbackend.domain.port.TopologyRepositoryPort;
+import java.time.Clock;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -22,13 +26,16 @@ public class RecordReadingBatchUseCase {
 
     private final TopologyRepositoryPort topologyRepository;
     private final ReadingRepositoryPort readingRepository;
+    private final Clock clock;
 
-    public RecordReadingBatchUseCase(TopologyRepositoryPort topologyRepository, ReadingRepositoryPort readingRepository) {
+    public RecordReadingBatchUseCase(TopologyRepositoryPort topologyRepository, ReadingRepositoryPort readingRepository, Clock clock) {
         this.topologyRepository = topologyRepository;
         this.readingRepository = readingRepository;
+        this.clock = clock;
     }
 
     public void execute(ReadingBatchRequest request) {
+        List<String> pushedDeviceIds = new ArrayList<>();
         for (ReadingBatchRequest.TransformerEntry tr : request.transformers()) {
             topologyRepository.upsertTransformer(new Transformer(tr.id(), tr.name()));
 
@@ -38,6 +45,7 @@ public class RecordReadingBatchUseCase {
                 for (ReadingBatchRequest.DeviceEntry device : gw.devices()) {
                     topologyRepository.upsertDevice(
                             new Device(device.id(), gw.id(), device.name(), device.slaveId(), device.deviceType(), device.enabled()));
+                    pushedDeviceIds.add(device.id());
 
                     // Saved per device: one device's bad row must not cost every
                     // other transformer its reading for this minute.
@@ -54,5 +62,8 @@ public class RecordReadingBatchUseCase {
                 }
             }
         }
+        // This push is the browser's full current device list - see
+        // TopologyRepositoryPort.findCurrentDeviceIds.
+        topologyRepository.markDevicesSeen(pushedDeviceIds, Instant.now(clock));
     }
 }

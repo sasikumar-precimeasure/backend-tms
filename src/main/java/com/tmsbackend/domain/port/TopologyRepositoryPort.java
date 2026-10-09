@@ -3,7 +3,10 @@ package com.tmsbackend.domain.port;
 import com.tmsbackend.domain.model.Device;
 import com.tmsbackend.domain.model.Gateway;
 import com.tmsbackend.domain.model.Transformer;
+import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import java.util.Optional;
 
 // Upserts the frontend's device topology (Transformer -> Gateway -> Device)
@@ -28,4 +31,11 @@ public interface TopologyRepositoryPort {
     List<Transformer> findAllTransformers();
 
     List<Gateway> findAllGateways();
+
+    // Records that these devices were part of a readings push at `at`.
+    void markDevicesSeen(Collection<String> deviceIds, Instant at);
+
+    // The devices in the most recent push(es) - i.e. what's configured in
+    // Settings now. Empty if no push has happened since tracking began.
+    Set<String> findCurrentDeviceIds();
 }

@@ -10,6 +10,11 @@ import com.tmsbackend.infrastructure.persistence.entity.TransformerEntity;
 import com.tmsbackend.infrastructure.persistence.repository.DeviceJpaRepository;
 import com.tmsbackend.infrastructure.persistence.repository.GatewayJpaRepository;
 import com.tmsbackend.infrastructure.persistence.repository.TransformerJpaRepository;
+import java.time.Instant;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.Set;
+import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.stereotype.Component;
@@ -64,6 +69,21 @@ public class TopologyRepositoryAdapter implements TopologyRepositoryPort {
     @Override
     public Optional<Device> findDevice(String deviceId) {
         return deviceJpaRepository.findById(deviceId).map(this::toDomain);
+    }
+
+    // Pushes from the same browser carry the same timestamp; 10 minutes also
+    // covers a second browser pushing slightly out of step.
+    private static final int CURRENT_DEVICE_WINDOW_MINUTES = 10;
+
+    @Override
+    @Transactional
+    public void markDevicesSeen(Collection<String> deviceIds, Instant at) {
+        if (!deviceIds.isEmpty()) deviceJpaRepository.markSeen(deviceIds, at);
+    }
+
+    @Override
+    public Set<String> findCurrentDeviceIds() {
+        return new HashSet<>(deviceJpaRepository.findRecentlySeenIds(CURRENT_DEVICE_WINDOW_MINUTES));
     }
 
     @Override

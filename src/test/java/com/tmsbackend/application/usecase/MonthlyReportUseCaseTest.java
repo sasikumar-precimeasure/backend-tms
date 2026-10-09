@@ -34,7 +34,9 @@ import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Collection;
 import java.util.Optional;
+import java.util.Set;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.junit.jupiter.api.Test;
 
@@ -45,6 +47,9 @@ class MonthlyReportUseCaseTest {
     private static final ZoneId IST = ZoneId.of("Asia/Kolkata");
     private static final YearMonth SEPTEMBER = YearMonth.of(2026, 9);
     private static final Device IRTCC = new Device("dev-1", "gw-1", "TR1 IRTCC", 1, DeviceType.IRTCC, true);
+    // Same-named leftover of an earlier setup - not in the latest push.
+    private static final Device OLD_IRTCC = new Device("dev-old", "gw-1", "TR1 IRTCC", 1, DeviceType.IRTCC, true);
+    private Set<String> currentDeviceIds = Set.of("dev-1");
 
     private final List<IrtccReading> irtccReadings = new ArrayList<>();
     private final List<ReportRecipient> recipients = new ArrayList<>();
@@ -57,9 +62,11 @@ class MonthlyReportUseCaseTest {
             public void upsertGateway(Gateway gateway) {}
             public void upsertDevice(Device device) {}
             public Optional<Device> findDevice(String deviceId) { return Optional.of(IRTCC); }
-            public List<Device> findAllDevices() { return List.of(IRTCC); }
+            public List<Device> findAllDevices() { return List.of(IRTCC, OLD_IRTCC); }
             public List<Transformer> findAllTransformers() { return List.of(new Transformer("tr-1", "TR1")); }
             public List<Gateway> findAllGateways() { return List.of(new Gateway("gw-1", "tr-1", "Gateway 1", 1, "127.0.0.1", 502)); }
+            public void markDevicesSeen(Collection<String> deviceIds, Instant at) {}
+            public Set<String> findCurrentDeviceIds() { return currentDeviceIds; }
         };
 
         ReadingRepositoryPort readings = new ReadingRepositoryPort() {
@@ -167,6 +174,23 @@ class MonthlyReportUseCaseTest {
         assertEquals(40.0, last.otiAvg());
 
         assertEquals(3, report.devices().get(0).slotsWithData());
+    }
+
+    @Test
+    void reportContainsOnlyCurrentDevices() {
+        MonthlyReport report = useCaseAt(ist("2026-10-08T12:00")).buildReport(SEPTEMBER, IST);
+
+        assertEquals(1, report.devices().size());
+        assertEquals("dev-1", report.devices().get(0).device().id());
+    }
+
+    @Test
+    void fallsBackToAllEnabledDevicesBeforeAnyPushHasMarkedCurrentOnes() {
+        currentDeviceIds = Set.of();
+
+        MonthlyReport report = useCaseAt(ist("2026-10-08T12:00")).buildReport(SEPTEMBER, IST);
+
+        assertEquals(2, report.devices().size());
     }
 
     @Test

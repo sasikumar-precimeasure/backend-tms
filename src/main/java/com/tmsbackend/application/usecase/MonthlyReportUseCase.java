@@ -36,6 +36,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.Function;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -154,9 +155,20 @@ public class MonthlyReportUseCase {
         Map<String, String> transformerNames = new HashMap<>();
         topologyRepository.findAllTransformers().forEach(t -> transformerNames.put(t.id(), t.name()));
 
+        // Only devices currently configured in Settings - the backend also
+        // keeps same-named leftovers of earlier setups, which would otherwise
+        // show up as extra, empty sheets. Before the first push after
+        // upgrading nothing is marked current yet; fall back to all enabled
+        // devices then rather than sending an empty report.
+        Set<String> currentIds = topologyRepository.findCurrentDeviceIds();
+        if (currentIds.isEmpty()) {
+            log.warn("No current device list known yet (no readings push since upgrade) - including all enabled devices");
+        }
+
         List<MonthlyReport.DeviceSection> sections = new ArrayList<>();
         for (Device device : topologyRepository.findAllDevices()) {
             if (!device.enabled()) continue;
+            if (!currentIds.isEmpty() && !currentIds.contains(device.id())) continue;
             Gateway gateway = gatewaysById.get(device.gatewayId());
             String transformerName = gateway != null ? transformerNames.getOrDefault(gateway.transformerId(), "") : "";
             List<MonthlyReport.Slot> slots = device.deviceType() == DeviceType.IRTCC
