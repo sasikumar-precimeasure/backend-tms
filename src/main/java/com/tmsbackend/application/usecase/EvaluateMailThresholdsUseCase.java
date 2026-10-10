@@ -3,6 +3,7 @@ package com.tmsbackend.application.usecase;
 import com.tmsbackend.application.audit.Auditable;
 import com.tmsbackend.domain.model.AuditEventType;
 import com.tmsbackend.domain.model.Device;
+import com.tmsbackend.domain.model.Device2243Reading;
 import com.tmsbackend.domain.model.DeviceType;
 import com.tmsbackend.domain.model.IrtccReading;
 import com.tmsbackend.domain.model.MailRecipient;
@@ -20,21 +21,18 @@ import java.util.Optional;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 
-// Runs every minute (see config.SchedulingConfig): for each IRTCC device,
-// compares its latest reading against its own mail_thresholds row (same
-// OTI/WTI/AVR/tap comparisons Form1.txt's MailTimer_Tick made) and, on a
+// Runs every minute (see config.SchedulingConfig): for each device, compares
+// its latest reading against its own mail_thresholds row (same OTI/WTI/AVR/
+// tap comparisons Form1.txt's MailTimer_Tick made) and, on a
 // breach not already re-alerted within mailTimeMinutes, sends one email per
 // enabled recipient opted into that device and records both a THRESHOLD_
 // BREACH and a MAIL_SENT audit event. `Clock` is injected (not
 // Instant.now() directly) so this is unit-testable with a fixed time
 // without needing a real scheduler tick.
 //
-// 2243 devices are intentionally out of scope for threshold-based mail for
-// now - MailThresholds' fields (otiTempHigh/wtiTempHigh/avrHigh/avrLow/
-// tapHigh/tapLow) map onto IRTCC's DashboardReadings fields; a 2243 device
-// has no AVR/tap concept at all, and its own setpoints already alarm at
-// the device level (see Device2243RegisterMap.ts), so there is nothing
-// this job would meaningfully evaluate for it today.
+// A 2243 device is checked for OTI High / WTI High only - it has no AVR or
+// tap position, so those thresholds don't apply to it (and aren't shown for
+// it in Mail Configuration).
 @Component
 public class EvaluateMailThresholdsUseCase {
     private final TopologyRepositoryPort topologyRepository;
@@ -81,10 +79,14 @@ public class EvaluateMailThresholdsUseCase {
         List<MailRecipient> allRecipients = mailSettingsRepository.findAllRecipients();
 
         for (Device device : topologyRepository.findAllDevices()) {
-            if (device.deviceType() != DeviceType.IRTCC || !device.enabled()) {
+            if (!device.enabled()) {
                 continue;
             }
-            evaluateDevice(device, senderSettings, allRecipients);
+            if (device.deviceType() == DeviceType.IRTCC) {
+                evaluateDevice(device, senderSettings, allRecipients);
+            } else if (device.deviceType() == DeviceType.DEVICE_2243) {
+                evaluate2243Device(device, senderSettings, allRecipients);
+            }
         }
     }
 
@@ -97,15 +99,7 @@ public class EvaluateMailThresholdsUseCase {
         MailThresholds thresholds = thresholdsOpt.get();
         IrtccReading reading = readingOpt.get();
 
-        checkCondition(device, thresholds, senderSettings, allRecipients, "OTI_HIGH",
-                reading.otiTemperature() != null && reading.otiTemperature() > thresholds.otiTempHigh(),
-                "Oil Temperature threshold exceeded",
-                "OTI Temperature: " + reading.otiTemperature() + " (threshold " + thresholds.otiTempHigh() + ")");
-
-        checkCondition(device, thresholds, senderSettings, allRecipients, "WTI_HIGH",
-                reading.wtiTemperature() != null && reading.wtiTemperature() > thresholds.wtiTempHigh(),
-                "Winding Temperature threshold exceeded",
-                "WTI Temperature: " + reading.wtiTemperature() + " (threshold " + thresholds.wtiTempHigh() + ")");
+        checkTemperatures(device, thresholds, senderSettings, allRecipients, reading.otiTemperature(), reading.wtiTemperature());
 
         boolean avrBreach = reading.actualPtVoltage() != null
                 && (reading.actualPtVoltage() > thresholds.avrHigh() || reading.actualPtVoltage() < thresholds.avrLow());
@@ -120,6 +114,34 @@ public class EvaluateMailThresholdsUseCase {
                 tapBreach, "Tap position threshold exceeded",
                 "Tap Position: " + reading.tapPosition()
                         + " (range " + thresholds.tapLow() + "-" + thresholds.tapHigh() + ")");
+    }
+
+    private void evaluate2243Device(Device device, MailSenderSettings senderSettings, List<MailRecipient> allRecipients) {
+        Optional<MailThresholds> thresholdsOpt = mailSettingsRepository.findThresholds(device.id());
+        Optional<Device2243Reading> readingOpt = readingRepository.findLatestDevice2243(device.id());
+        if (thresholdsOpt.isEmpty() || readingOpt.isEmpty()) {
+            return;
+        }
+        Device2243Reading reading = readingOpt.get();
+        checkTemperatures(device, thresholdsOpt.get(), senderSettings, allRecipients, reading.otiTemperature(), reading.wtiTemperature());
+    }
+
+    private void checkTemperatures(
+            Device device,
+            MailThresholds thresholds,
+            MailSenderSettings senderSettings,
+            List<MailRecipient> allRecipients,
+            Double otiTemperature,
+            Double wtiTemperature) {
+        checkCondition(device, thresholds, senderSettings, allRecipients, "OTI_HIGH",
+                otiTemperature != null && otiTemperature > thresholds.otiTempHigh(),
+                "Oil Temperature threshold exceeded",
+                "OTI Temperature: " + otiTemperature + " (threshold " + thresholds.otiTempHigh() + ")");
+
+        checkCondition(device, thresholds, senderSettings, allRecipients, "WTI_HIGH",
+                wtiTemperature != null && wtiTemperature > thresholds.wtiTempHigh(),
+                "Winding Temperature threshold exceeded",
+                "WTI Temperature: " + wtiTemperature + " (threshold " + thresholds.wtiTempHigh() + ")");
     }
 
     private void checkCondition(

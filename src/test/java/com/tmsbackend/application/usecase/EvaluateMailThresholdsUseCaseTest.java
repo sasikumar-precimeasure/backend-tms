@@ -48,6 +48,8 @@ class EvaluateMailThresholdsUseCaseTest {
     private final Clock clock = Clock.fixed(now.get(), ZoneOffset.UTC);
 
     private final Map<String, IrtccReading> latestReadings = new HashMap<>();
+    private final Map<String, Device2243Reading> latest2243Readings = new HashMap<>();
+    private List<Device> devices = List.of(new Device(DEVICE_ID, "gw-1", "TR1 IRTCC", 1, DeviceType.IRTCC, true));
     private final Map<String, Instant> lastSent = new HashMap<>();
     private final List<String> sentSubjects = new ArrayList<>();
 
@@ -83,7 +85,7 @@ class EvaluateMailThresholdsUseCaseTest {
 
             @Override
             public List<Device> findAllDevices() {
-                return List.of(new Device(DEVICE_ID, "gw-1", "TR1 IRTCC", 1, DeviceType.IRTCC, true));
+                return devices;
             }
 
             @Override
@@ -123,7 +125,7 @@ class EvaluateMailThresholdsUseCaseTest {
 
             @Override
             public Optional<Device2243Reading> findLatestDevice2243(String deviceId) {
-                return Optional.empty();
+                return Optional.ofNullable(latest2243Readings.get(deviceId));
             }
 
             @Override
@@ -258,5 +260,32 @@ class EvaluateMailThresholdsUseCaseTest {
 
         useCase.execute();
         assertEquals(2, sentSubjects.size());
+    }
+
+    private void use2243Device(double otiTemperature, double wtiTemperature) {
+        devices = List.of(new Device(DEVICE_ID, "gw-1", "TR1 2243", 2, DeviceType.DEVICE_2243, true));
+        latest2243Readings.put(DEVICE_ID, new Device2243Reading(
+                DEVICE_ID, now.get(), otiTemperature, wtiTemperature,
+                null, null, null, null, null, null, null, null, null, null, null, null, null));
+    }
+
+    @Test
+    void sends2243AlertsForOtiAndWtiHigh() {
+        use2243Device(95.0, 90.0); // thresholds 80 / 85
+
+        useCase.execute();
+
+        assertEquals(2, sentSubjects.size());
+        assertTrue(sentSubjects.get(0).contains("Oil Temperature"));
+        assertTrue(sentSubjects.get(1).contains("Winding Temperature"));
+    }
+
+    @Test
+    void doesNotSend2243AlertBelowTemperatureThresholds() {
+        use2243Device(60.0, 60.0);
+
+        useCase.execute();
+
+        assertEquals(0, sentSubjects.size());
     }
 }
